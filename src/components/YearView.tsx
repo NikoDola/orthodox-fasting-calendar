@@ -17,9 +17,13 @@ interface Props {
   onLongPress: (date: Date) => void;
   getEaster: (year: number) => Date;
   progress: Record<string, DayProgress>;
+  selectionMode: boolean;
+  selectionDraft: Record<string, DayProgress>;
+  onSelectionTap: (date: Date) => void;
+  onSelectionRange: (date: Date) => void;
 }
 
-export function YearView({ today, onDayPress, onLongPress, getEaster, progress }: Props) {
+export function YearView({ today, onDayPress, onLongPress, getEaster, progress, selectionMode, selectionDraft, onSelectionTap, onSelectionRange }: Props) {
   const [year, setYear] = useState(today.getFullYear());
   const easter = useMemo(() => getEaster(year), [year, getEaster]);
 
@@ -56,6 +60,10 @@ export function YearView({ today, onDayPress, onLongPress, getEaster, progress }
               onDayPress={onDayPress}
               onLongPress={onLongPress}
               progress={progress}
+              selectionMode={selectionMode}
+              selectionDraft={selectionDraft}
+              onSelectionTap={onSelectionTap}
+              onSelectionRange={onSelectionRange}
             />
           ))}
         </View>
@@ -72,9 +80,13 @@ interface MiniMonthProps {
   onDayPress: (date: Date) => void;
   onLongPress: (date: Date) => void;
   progress: Record<string, DayProgress>;
+  selectionMode: boolean;
+  selectionDraft: Record<string, DayProgress>;
+  onSelectionTap: (date: Date) => void;
+  onSelectionRange: (date: Date) => void;
 }
 
-function MiniMonth({ year, month, today, easter, onDayPress, onLongPress, progress }: MiniMonthProps) {
+function MiniMonth({ year, month, today, easter, onDayPress, onLongPress, progress, selectionMode, selectionDraft, onSelectionTap, onSelectionRange }: MiniMonthProps) {
   const firstDayOfMonth = new Date(year, month, 1);
   const startDow = (firstDayOfMonth.getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -152,16 +164,19 @@ function MiniMonth({ year, month, today, easter, onDayPress, onLongPress, progre
             const isSunday = dow === 6;
             const color = FASTING_COLORS[cell.level as keyof typeof FASTING_COLORS];
             const cellProgress = progress[dateKey(cell.date)];
+            const isSelected = selectionMode && !!selectionDraft[dateKey(cell.date)];
+            const selProg = selectionDraft[dateKey(cell.date)];
 
             return (
               <TouchableOpacity
                 key={cell.date.toISOString()}
-                onPress={() => onDayPress(cell.date!)}
-                onLongPress={() => onLongPress(cell.date!)}
+                onPress={() => selectionMode ? onSelectionTap(cell.date!) : onDayPress(cell.date!)}
+                onLongPress={() => selectionMode ? onSelectionRange(cell.date!) : onLongPress(cell.date!)}
                 delayLongPress={400}
                 style={[
                   styles.miniDayCell,
-                  cell.level > 0 && { backgroundColor: color + "33" },
+                  !isSelected && cell.level > 0 && { backgroundColor: color + "33" },
+                  isSelected && (selProg === "completed" ? styles.miniCellSelectedCompleted : styles.miniCellSelectedCommitted),
                 ]}
                 activeOpacity={0.6}
               >
@@ -319,6 +334,12 @@ const styles = StyleSheet.create({
     fontSize: 6,
     color: "#f59e0b",
     lineHeight: 8,
+  },
+  miniCellSelectedCompleted: {
+    backgroundColor: "#dcfce7",
+  },
+  miniCellSelectedCommitted: {
+    backgroundColor: "#fef3c7",
   },
   miniProgressDot: {
     position: "absolute",

@@ -5,6 +5,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
+  Alert,
+  BackHandler,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { CalendarView } from "./src/components/CalendarView";
@@ -51,6 +53,11 @@ export default function App() {
   const [longPressDate, setLongPressDate] = useState<Date | null>(null);
   const [screen, setScreen] = useState<"main" | "profile">("main");
 
+  // Selection mode
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectionDraft, setSelectionDraft] = useState<Record<string, DayProgress>>({});
+  const [selectionAnchor, setSelectionAnchor] = useState<Date | null>(null);
+
   const getEaster = useCallback((year: number) => orthodoxEaster(year), []);
 
   useEffect(() => {
@@ -70,6 +77,85 @@ export default function App() {
       return next;
     });
   }, [setProgress]);
+
+  // ── Selection mode handlers ──────────────────────────────────
+  const saveSelection = useCallback(() => {
+    setProgress((prev) => ({ ...prev, ...selectionDraft }));
+    setSelectionMode(false);
+    setSelectionDraft({});
+    setSelectionAnchor(null);
+  }, [selectionDraft, setProgress]);
+
+  const discardSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectionDraft({});
+    setSelectionAnchor(null);
+  }, []);
+
+  const handleCancelSelection = useCallback(() => {
+    if (Object.keys(selectionDraft).length === 0) {
+      discardSelection();
+      return;
+    }
+    Alert.alert(
+      "Зачувај прогрес?",
+      "Дали сакаш да го зачуваш избраниот прогрес?",
+      [
+        { text: "Не", style: "cancel", onPress: discardSelection },
+        { text: "Да", onPress: saveSelection },
+      ]
+    );
+  }, [selectionDraft, saveSelection, discardSelection]);
+
+  // Android back button cancels selection mode
+  useEffect(() => {
+    if (!selectionMode) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      handleCancelSelection();
+      return true;
+    });
+    return () => sub.remove();
+  }, [selectionMode, handleCancelSelection]);
+
+  const handleSelectionTap = useCallback((date: Date) => {
+    const key = dateKey(date);
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    const d = new Date(date); d.setHours(0, 0, 0, 0);
+    const prog: DayProgress = d < now ? "completed" : "committed";
+    setSelectionDraft((prev) => {
+      if (prev[key]) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return { ...prev, [key]: prog };
+    });
+    setSelectionAnchor(date);
+  }, []);
+
+  const handleSelectionRange = useCallback((toDate: Date) => {
+    if (!selectionAnchor) {
+      setSelectionAnchor(toDate);
+      handleSelectionTap(toDate);
+      return;
+    }
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    const a = new Date(selectionAnchor); a.setHours(0, 0, 0, 0);
+    const b = new Date(toDate); b.setHours(0, 0, 0, 0);
+    const start = a <= b ? a : b;
+    const end = a <= b ? b : a;
+
+    setSelectionDraft((prev) => {
+      const next = { ...prev };
+      let cur = new Date(start);
+      while (cur <= end) {
+        const isPast = cur < now;
+        next[dateKey(cur)] = isPast ? "completed" : "committed";
+        cur = new Date(cur.getTime() + 86400000);
+      }
+      return next;
+    });
+  }, [selectionAnchor, handleSelectionTap]);
 
   const handleDayPress = useCallback((date: Date) => {
     setSelectedDate(date);
@@ -140,6 +226,37 @@ export default function App() {
         </View>
       </View>
 
+      {/* Selection mode bar — visible on calendar + year tabs */}
+      {(activeTab === "calendar" || activeTab === "year") && (
+        <View style={[styles.selectionBar, selectionMode && styles.selectionBarActive]}>
+          {!selectionMode ? (
+            <TouchableOpacity
+              onPress={() => setSelectionMode(true)}
+              style={styles.selectionBarBtn}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.selectionBarBtnText}>☑  Селектирај Пости</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <Text style={styles.selectionBarCount}>
+                {Object.keys(selectionDraft).length > 0
+                  ? `${Object.keys(selectionDraft).length} избрани`
+                  : "Кликни на датум"}
+              </Text>
+              <View style={styles.selectionBarActions}>
+                <TouchableOpacity onPress={saveSelection} style={[styles.selectionAction, styles.selectionActionSave]} activeOpacity={0.8}>
+                  <Text style={styles.selectionActionText}>✓</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleCancelSelection} style={[styles.selectionAction, styles.selectionActionCancel]} activeOpacity={0.8}>
+                  <Text style={styles.selectionActionText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
+      )}
+
       {/* Main content */}
       <View style={styles.main}>
         {activeTab === "calendar" && (
@@ -151,6 +268,10 @@ export default function App() {
             onMonthChange={setCurrentDate}
             getEaster={getEaster}
             progress={progress}
+            selectionMode={selectionMode}
+            selectionDraft={selectionDraft}
+            onSelectionTap={handleSelectionTap}
+            onSelectionRange={handleSelectionRange}
           />
         )}
         {activeTab === "year" && (
@@ -160,6 +281,10 @@ export default function App() {
             onLongPress={setLongPressDate}
             getEaster={getEaster}
             progress={progress}
+            selectionMode={selectionMode}
+            selectionDraft={selectionDraft}
+            onSelectionTap={handleSelectionTap}
+            onSelectionRange={handleSelectionRange}
           />
         )}
         {activeTab === "settings" && (
@@ -280,6 +405,58 @@ const styles = StyleSheet.create({
   },
   profileBtnText: {
     fontSize: 16,
+  },
+  selectionBar: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e7e5e4",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  selectionBarActive: {
+    backgroundColor: "#fef3c7",
+    borderBottomColor: "#fcd34d",
+  },
+  selectionBarBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 2,
+  },
+  selectionBarBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#78350f",
+  },
+  selectionBarCount: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#78350f",
+    flex: 1,
+  },
+  selectionBarActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  selectionAction: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selectionActionSave: {
+    backgroundColor: "#16a34a",
+  },
+  selectionActionCancel: {
+    backgroundColor: "#dc2626",
+  },
+  selectionActionText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
   },
   main: {
     flex: 1,

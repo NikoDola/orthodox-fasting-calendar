@@ -19,6 +19,10 @@ interface Props {
   onMonthChange: (date: Date) => void;
   getEaster: (year: number) => Date;
   progress: Record<string, DayProgress>;
+  selectionMode: boolean;
+  selectionDraft: Record<string, DayProgress>;
+  onSelectionTap: (date: Date) => void;
+  onSelectionRange: (date: Date) => void;
 }
 
 export function CalendarView({
@@ -29,6 +33,10 @@ export function CalendarView({
   onMonthChange,
   getEaster,
   progress,
+  selectionMode,
+  selectionDraft,
+  onSelectionTap,
+  onSelectionRange,
 }: Props) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -127,14 +135,19 @@ export function CalendarView({
                 const color = FASTING_COLORS[cell.level as keyof typeof FASTING_COLORS];
 
                 const cellProgress = progress[dateKey(cell.date)];
+                const isSelected = selectionMode && !!selectionDraft[dateKey(cell.date)];
+                const selProg = selectionDraft[dateKey(cell.date)];
 
                 return (
                   <TouchableOpacity
                     key={cell.date.toISOString()}
-                    onPress={() => onDayPress(cell.date!)}
-                    onLongPress={() => onLongPress(cell.date!)}
+                    onPress={() => selectionMode ? onSelectionTap(cell.date!) : onDayPress(cell.date!)}
+                    onLongPress={() => selectionMode ? onSelectionRange(cell.date!) : onLongPress(cell.date!)}
                     delayLongPress={400}
-                    style={styles.dayCell}
+                    style={[
+                      styles.dayCell,
+                      isSelected && (selProg === "completed" ? styles.cellSelectedCompleted : styles.cellSelectedCommitted),
+                    ]}
                     activeOpacity={0.6}
                   >
                     {/* Feast star */}
@@ -348,6 +361,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 3,
+  },
+  cellSelectedCompleted: {
+    backgroundColor: "#dcfce7",
+  },
+  cellSelectedCommitted: {
+    backgroundColor: "#fef3c7",
   },
   progressDot: {
     position: "absolute",

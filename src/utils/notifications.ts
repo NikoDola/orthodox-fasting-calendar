@@ -5,6 +5,7 @@ import type { FastingLevel, NotificationSettings, DayProgress } from "../types";
 import { FASTING_LABELS, dateKey } from "../types";
 import { computeFastingLevel } from "./fasting";
 import { orthodoxEaster, addDays } from "./easter";
+import { getSaintInfo } from "../data/saints";
 
 // Show notifications even when app is in foreground
 Notifications.setNotificationHandler({
@@ -171,6 +172,57 @@ export async function scheduleUpcomingNotifications(
         },
       });
     }
+  }
+
+  // Also notify about saint days (level 0) that the user committed to
+  await scheduleSaintDayNotifications(progress, hours, minutes);
+}
+
+// Schedule saint-day reminders for level-0 days the user has committed to
+async function scheduleSaintDayNotifications(
+  progress: Record<string, DayProgress>,
+  hours: number,
+  minutes: number
+): Promise<void> {
+  const todayNorm = new Date();
+  todayNorm.setHours(0, 0, 0, 0);
+
+  for (const [key, prog] of Object.entries(progress)) {
+    if (prog !== "committed") continue;
+
+    const date = new Date(key);
+    if (isNaN(date.getTime())) continue;
+
+    const dateNorm = new Date(date);
+    dateNorm.setHours(0, 0, 0, 0);
+    if (dateNorm <= todayNorm) continue; // past / today already handled
+
+    const easter = orthodoxEaster(date.getFullYear());
+    const level = computeFastingLevel(date, easter);
+    if (level > 0) continue; // fasting days already covered by the main loop
+
+    const saint = getSaintInfo(date, easter);
+    const trigger = new Date(dateNorm);
+    trigger.setHours(hours, minutes, 0, 0);
+    if (trigger <= new Date()) continue;
+
+    const dateStr = date.toLocaleDateString("mk-MK", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `☦ ${saint.name}`,
+        body: `${dateStr}. ${saint.description || "Прославување на светецот."}`,
+        sound: true,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: trigger,
+      },
+    });
   }
 }
 
