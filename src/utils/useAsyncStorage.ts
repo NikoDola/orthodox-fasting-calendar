@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+type Updater<T> = T | ((prev: T) => T);
+
 export function useAsyncStorage<T>(
   key: string,
   defaultValue: T
-): [T, (value: T) => void, boolean] {
+): [T, (value: Updater<T>) => void, boolean] {
   const [value, setValue] = useState<T>(defaultValue);
   const [loaded, setLoaded] = useState(false);
 
@@ -22,9 +24,15 @@ export function useAsyncStorage<T>(
   }, [key]);
 
   const setStored = useCallback(
-    (newValue: T) => {
-      setValue(newValue);
-      AsyncStorage.setItem(key, JSON.stringify(newValue)).catch(() => {});
+    (updater: Updater<T>) => {
+      setValue((prev) => {
+        const newValue =
+          typeof updater === "function"
+            ? (updater as (prev: T) => T)(prev)
+            : updater;
+        AsyncStorage.setItem(key, JSON.stringify(newValue)).catch(() => {});
+        return newValue;
+      });
     },
     [key]
   );

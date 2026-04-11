@@ -11,7 +11,15 @@ import { CalendarView } from "./src/components/CalendarView";
 import { DayDetail } from "./src/components/DayDetail";
 import { SettingsView } from "./src/components/SettingsView";
 import { YearView } from "./src/components/YearView";
-import { FASTING_COLORS, NotificationSettings, DEFAULT_NOTIFICATION_SETTINGS } from "./src/types";
+import { ProgressPopup } from "./src/components/ProgressPopup";
+import { ProfileView } from "./src/components/ProfileView";
+import {
+  FASTING_COLORS,
+  NotificationSettings,
+  DEFAULT_NOTIFICATION_SETTINGS,
+  dateKey,
+} from "./src/types";
+import type { DayProgress } from "./src/types";
 import { orthodoxEaster } from "./src/utils/easter";
 import { computeFastingLevel, getFastingLabel } from "./src/utils/fasting";
 import { getSaintInfo } from "./src/data/saints";
@@ -21,8 +29,8 @@ import { useAsyncStorage } from "./src/utils/useAsyncStorage";
 type Tab = "calendar" | "year" | "settings";
 
 const TABS = [
-  { tab: "calendar" as Tab, icon: "📅", label: "Месец" },
-  { tab: "year" as Tab, icon: "🗓️", label: "Година" },
+  { tab: "calendar" as Tab, icon: "📅", label: "Ова Година" },
+  { tab: "year" as Tab, icon: "🗓️", label: "Сите Години" },
   { tab: "settings" as Tab, icon: "🔔", label: "Поставки" },
 ] as const;
 
@@ -36,14 +44,32 @@ export default function App() {
       "notification-settings",
       DEFAULT_NOTIFICATION_SETTINGS
     );
+  const [progress, setProgress, progressLoaded] =
+    useAsyncStorage<Record<string, DayProgress>>("day-progress", {});
+
+  // Long-press popup state
+  const [longPressDate, setLongPressDate] = useState<Date | null>(null);
+  const [showProfile, setShowProfile] = useState(false);
 
   const getEaster = useCallback((year: number) => orthodoxEaster(year), []);
 
   useEffect(() => {
-    if (settingsLoaded) {
-      scheduleUpcomingNotifications(notifSettings).catch(console.error);
+    if (settingsLoaded && progressLoaded) {
+      scheduleUpcomingNotifications(notifSettings, progress).catch(console.error);
     }
-  }, [notifSettings, settingsLoaded]);
+  }, [notifSettings, settingsLoaded, progress, progressLoaded]);
+
+  const handleSetProgress = useCallback((date: Date, prog: DayProgress) => {
+    setProgress((prev) => ({ ...prev, [dateKey(date)]: prog }));
+  }, [setProgress]);
+
+  const handleDeleteProgress = useCallback((date: Date) => {
+    setProgress((prev) => {
+      const next = { ...prev };
+      delete next[dateKey(date)];
+      return next;
+    });
+  }, [setProgress]);
 
   const handleDayPress = useCallback((date: Date) => {
     setSelectedDate(date);
@@ -84,17 +110,26 @@ export default function App() {
             <Text style={styles.headerSubtitle}>Календар</Text>
           </View>
         </View>
-        {/* Fasting legend dots */}
-        <View style={styles.legendDots}>
-          {([0, 1, 2, 3, 4] as const).map((level) => (
-            <View
-              key={level}
-              style={[
-                styles.legendDot,
-                { backgroundColor: FASTING_COLORS[level] },
-              ]}
-            />
-          ))}
+        {/* Header right: fasting dots + profile */}
+        <View style={styles.headerRight}>
+          <View style={styles.legendDots}>
+            {([0, 1, 2, 3, 4] as const).map((level) => (
+              <View
+                key={level}
+                style={[
+                  styles.legendDot,
+                  { backgroundColor: FASTING_COLORS[level] },
+                ]}
+              />
+            ))}
+          </View>
+          <TouchableOpacity
+            onPress={() => setShowProfile(true)}
+            style={styles.profileBtn}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.profileBtnText}>👤</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -105,15 +140,19 @@ export default function App() {
             currentDate={currentDate}
             today={today}
             onDayPress={handleDayPress}
+            onLongPress={setLongPressDate}
             onMonthChange={setCurrentDate}
             getEaster={getEaster}
+            progress={progress}
           />
         )}
         {activeTab === "year" && (
           <YearView
             today={today}
             onDayPress={handleDayPress}
+            onLongPress={setLongPressDate}
             getEaster={getEaster}
+            progress={progress}
           />
         )}
         {activeTab === "settings" && (
@@ -145,7 +184,38 @@ export default function App() {
 
       {/* Day Detail Modal */}
       {selectedDayData && (
-        <DayDetail data={selectedDayData} onClose={handleCloseDetail} />
+        <DayDetail
+          data={selectedDayData}
+          progress={progress[dateKey(selectedDayData.date)]}
+          onSetProgress={(prog) => handleSetProgress(selectedDayData.date, prog)}
+          onDeleteProgress={() => handleDeleteProgress(selectedDayData.date)}
+          onClose={handleCloseDetail}
+        />
+      )}
+
+      {/* Profile modal */}
+      {showProfile && (
+        <ProfileView
+          progress={progress}
+          onClose={() => setShowProfile(false)}
+        />
+      )}
+
+      {/* Long press popup */}
+      {longPressDate && (
+        <ProgressPopup
+          date={longPressDate}
+          progress={progress[dateKey(longPressDate)]}
+          onSetProgress={(prog) => {
+            handleSetProgress(longPressDate, prog);
+            setLongPressDate(null);
+          }}
+          onDelete={() => {
+            handleDeleteProgress(longPressDate);
+            setLongPressDate(null);
+          }}
+          onClose={() => setLongPressDate(null)}
+        />
       )}
     </SafeAreaView>
     </SafeAreaProvider>
@@ -190,6 +260,11 @@ const styles = StyleSheet.create({
     color: "#fde68a",
     lineHeight: 16,
   },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   legendDots: {
     flexDirection: "row",
   },
@@ -200,6 +275,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.3)",
     marginLeft: 4,
+  },
+  profileBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileBtnText: {
+    fontSize: 16,
   },
   main: {
     flex: 1,

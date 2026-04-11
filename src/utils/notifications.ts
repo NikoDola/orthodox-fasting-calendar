@@ -1,10 +1,21 @@
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import { Platform } from "react-native";
-import type { FastingLevel, NotificationSettings } from "../types";
-import { FASTING_LABELS } from "../types";
+import type { FastingLevel, NotificationSettings, DayProgress } from "../types";
+import { FASTING_LABELS, dateKey } from "../types";
 import { computeFastingLevel } from "./fasting";
 import { orthodoxEaster, addDays } from "./easter";
+
+// Show notifications even when app is in foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 export async function ensureNotificationPermission(): Promise<boolean> {
   if (!Device.isDevice) return false;
@@ -12,7 +23,7 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("fasting", {
       name: "Пост известувања",
-      importance: Notifications.AndroidImportance.DEFAULT,
+      importance: Notifications.AndroidImportance.HIGH,
     });
   }
 
@@ -22,9 +33,10 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   return status === "granted";
 }
 
+// Returns fasting level increases within the look-ahead window
 function findUpcomingFastStarts(
   fromDate: Date,
-  lookAheadDays = 14
+  lookAheadDays: number
 ): Array<{ startDate: Date; level: FastingLevel }> {
   const starts: Array<{ startDate: Date; level: FastingLevel }> = [];
   let prevLevel = computeFastingLevel(
@@ -37,7 +49,7 @@ function findUpcomingFastStarts(
     const easter = orthodoxEaster(d.getFullYear());
     const level = computeFastingLevel(d, easter);
     if (level > prevLevel && level > 0) {
-      starts.push({ startDate: d, level });
+      starts.push({ startDate: d, level: level as FastingLevel });
     }
     prevLevel = level;
   }
@@ -45,9 +57,13 @@ function findUpcomingFastStarts(
 }
 
 export async function scheduleUpcomingNotifications(
-  settings: NotificationSettings
+  settings: NotificationSettings,
+  progress: Record<string, DayProgress> = {}
 ): Promise<void> {
-  if (!settings.enabled) return;
+  if (!settings.enabled) {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    return;
+  }
 
   const granted = await ensureNotificationPermission();
   if (!granted) return;
@@ -56,57 +72,103 @@ export async function scheduleUpcomingNotifications(
   await Notifications.cancelAllScheduledNotificationsAsync();
 
   const today = new Date();
-  const starts = findUpcomingFastStarts(today, 14);
+
+  // Look ahead far enough to catch any fast start that needs a notification
+  const maxDaysBefore = Math.max(
+    settings.level4Days,
+    settings.level3Days,
+    settings.level2Days,
+    settings.level1Days
+  );
+  const lookAhead = maxDaysBefore + 30; // extra buffer for weekly fasts
+  const starts = findUpcomingFastStarts(today, lookAhead);
+
+  const [hours, minutes] = settings.notificationTime.split(":").map(Number);
 
   for (const { startDate, level } of starts) {
-    const daysUntil = Math.round(
-      (startDate.getTime() - today.getTime()) / 86400000
-    );
-
-    const shouldNotify = (() => {
+    const notifyEnabled = (() => {
       switch (level) {
-        case 4: return settings.notifyLevel4 && daysUntil <= settings.level4Days;
-        case 3: return settings.notifyLevel3 && daysUntil <= settings.level3Days;
-        case 2: return settings.notifyLevel2 && daysUntil <= settings.level2Days;
-        case 1: return settings.notifyLevel1 && daysUntil <= settings.level1Days;
+        case 4: return settings.notifyLevel4;
+        case 3: return settings.notifyLevel3;
+        case 2: return settings.notifyLevel2;
+        case 1: return settings.notifyLevel1;
         default: return false;
       }
     })();
 
-    if (!shouldNotify) continue;
+    if (!notifyEnabled) continue;
 
-    const label = FASTING_LABELS[level];
-    const dateStr = startDate.toLocaleDateString("mk-MK", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    });
+    // If "only planned" is on, skip fasts the user hasn't committed to
+    if (settings.onlyPlanned) {
+      const key = dateKey(startDate);
+      if (progress[key] !== "committed" && progress[key] !== "completed") continue;
+    }
 
-    const title =
-      daysUntil === 0
-        ? `☦ Денес е ${label}`
-        : daysUntil === 1
-        ? `☦ Утре почнува ${label}`
-        : `☦ За ${daysUntil} денови: ${label}`;
+    const daysBeforeNotify = (() => {
+      switch (level) {
+        case 4: return settings.level4Days;
+        case 3: return settings.level3Days;
+        case 2: return settings.level2Days;
+        case 1: return settings.level1Days;
+        default: return 0;
+      }
+    })();
 
-    const body =
-      daysUntil === 0
-        ? getBodyForLevel(level)
-        : `${label} почнува ${dateStr}. ${getBodyForLevel(level)}`;
+    const repeatDaily = (() => {
+      switch (level) {
+        case 4: return settings.repeatDailyLevel4;
+        case 3: return settings.repeatDailyLevel3;
+        case 2: return settings.repeatDailyLevel2;
+        case 1: return settings.repeatDailyLevel1;
+        default: return false;
+      }
+    })();
 
-    // Parse notification time HH:MM
-    const [hours, minutes] = settings.notificationTime.split(":").map(Number);
+    // notifyDate = the first day we should send a notification (startDate - daysBeforeNotify)
+    const notifyDate = addDays(startDate, -daysBeforeNotify);
 
-    // Schedule for today if daysUntil === 0 and time hasn't passed, else schedule for that future date
-    const trigger = new Date(today);
-    trigger.setDate(trigger.getDate() + daysUntil);
-    trigger.setHours(hours, minutes, 0, 0);
+    // Determine the range of days to schedule for
+    // repeatDaily: schedule every day from notifyDate up to (but not including) startDate
+    // once: schedule only on notifyDate
+    const scheduleCount = repeatDaily ? daysBeforeNotify : 1;
 
-    // Only schedule if in the future
-    if (trigger > new Date()) {
+    for (let offset = 0; offset < scheduleCount; offset++) {
+      const triggerDay = addDays(notifyDate, offset);
+      const trigger = new Date(triggerDay);
+      trigger.setHours(hours, minutes, 0, 0);
+
+      // Skip if this trigger time is already in the past
+      if (trigger <= new Date()) continue;
+
+      const daysUntilStart = Math.round(
+        (startDate.getTime() - triggerDay.getTime()) / 86400000
+      );
+
+      const label = FASTING_LABELS[level];
+      const dateStr = startDate.toLocaleDateString("mk-MK", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      });
+
+      const title =
+        daysUntilStart === 0
+          ? `☦ Денес е ${label}`
+          : daysUntilStart === 1
+          ? `☦ Утре почнува ${label}`
+          : `☦ За ${daysUntilStart} ${daysUntilStart === 1 ? "ден" : "денови"}: ${label}`;
+
+      const body =
+        daysUntilStart === 0
+          ? getBodyForLevel(level)
+          : `${label} почнува ${dateStr}. ${getBodyForLevel(level)}`;
+
       await Notifications.scheduleNotificationAsync({
         content: { title, body, sound: true },
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: trigger,
+        },
       });
     }
   }

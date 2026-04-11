@@ -6,17 +6,20 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
-import { FASTING_COLORS, MONTH_NAMES_MK, DAY_NAMES_MK_SHORT } from "../types";
+import { FASTING_COLORS, MONTH_NAMES_MK, DAY_NAMES_MK_SHORT, dateKey } from "../types";
+import type { DayProgress } from "../types";
 import { computeFastingLevel } from "../utils/fasting";
 import { getSaintInfo } from "../data/saints";
 
 interface Props {
   today: Date;
   onDayPress: (date: Date) => void;
+  onLongPress: (date: Date) => void;
   getEaster: (year: number) => Date;
+  progress: Record<string, DayProgress>;
 }
 
-export function YearView({ today, onDayPress, getEaster }: Props) {
+export function YearView({ today, onDayPress, onLongPress, getEaster, progress }: Props) {
   const [year, setYear] = useState(today.getFullYear());
   const easter = useMemo(() => getEaster(year), [year, getEaster]);
 
@@ -51,6 +54,8 @@ export function YearView({ today, onDayPress, getEaster }: Props) {
               today={today}
               easter={easter}
               onDayPress={onDayPress}
+              onLongPress={onLongPress}
+              progress={progress}
             />
           ))}
         </View>
@@ -65,9 +70,11 @@ interface MiniMonthProps {
   today: Date;
   easter: Date;
   onDayPress: (date: Date) => void;
+  onLongPress: (date: Date) => void;
+  progress: Record<string, DayProgress>;
 }
 
-function MiniMonth({ year, month, today, easter, onDayPress }: MiniMonthProps) {
+function MiniMonth({ year, month, today, easter, onDayPress, onLongPress, progress }: MiniMonthProps) {
   const firstDayOfMonth = new Date(year, month, 1);
   const startDow = (firstDayOfMonth.getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -137,11 +144,14 @@ function MiniMonth({ year, month, today, easter, onDayPress }: MiniMonthProps) {
             const dow = (cell.date.getDay() + 6) % 7;
             const isSunday = dow === 6;
             const color = FASTING_COLORS[cell.level as keyof typeof FASTING_COLORS];
+            const cellProgress = progress[dateKey(cell.date)];
 
             return (
               <TouchableOpacity
                 key={cell.date.toISOString()}
                 onPress={() => onDayPress(cell.date!)}
+                onLongPress={() => onLongPress(cell.date!)}
+                delayLongPress={400}
                 style={[
                   styles.miniDayCell,
                   cell.level > 0 && { backgroundColor: color + "33" },
@@ -166,6 +176,14 @@ function MiniMonth({ year, month, today, easter, onDayPress }: MiniMonthProps) {
                 </View>
                 {cell.isFeast && (
                   <Text style={styles.miniFeastStar}>★</Text>
+                )}
+                {cellProgress && (
+                  <View style={[
+                    styles.miniProgressDot,
+                    cellProgress === "completed"
+                      ? styles.miniProgressDotCompleted
+                      : styles.miniProgressDotCommitted,
+                  ]} />
                 )}
               </TouchableOpacity>
             );
@@ -294,5 +312,20 @@ const styles = StyleSheet.create({
     fontSize: 6,
     color: "#f59e0b",
     lineHeight: 8,
+  },
+  miniProgressDot: {
+    position: "absolute",
+    bottom: 2,
+    left: 2,
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  miniProgressDotCompleted: {
+    backgroundColor: "#16a34a",
+  },
+  miniProgressDotCommitted: {
+    backgroundColor: "#78350f",
+    opacity: 0.5,
   },
 });

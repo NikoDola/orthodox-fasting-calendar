@@ -6,7 +6,8 @@ import {
   ScrollView,
   StyleSheet,
 } from "react-native";
-import { FASTING_COLORS, MONTH_NAMES_MK, DAY_NAMES_MK_SHORT } from "../types";
+import { FASTING_COLORS, MONTH_NAMES_MK, DAY_NAMES_MK_SHORT, dateKey } from "../types";
+import type { DayProgress } from "../types";
 import { computeFastingLevel } from "../utils/fasting";
 import { getSaintInfo } from "../data/saints";
 
@@ -14,16 +15,20 @@ interface Props {
   currentDate: Date;
   today: Date;
   onDayPress: (date: Date) => void;
+  onLongPress: (date: Date) => void;
   onMonthChange: (date: Date) => void;
   getEaster: (year: number) => Date;
+  progress: Record<string, DayProgress>;
 }
 
 export function CalendarView({
   currentDate,
   today,
   onDayPress,
+  onLongPress,
   onMonthChange,
   getEaster,
+  progress,
 }: Props) {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -114,10 +119,14 @@ export function CalendarView({
                 const isSunday = dow === 6;
                 const color = FASTING_COLORS[cell.level as keyof typeof FASTING_COLORS];
 
+                const cellProgress = progress[dateKey(cell.date)];
+
                 return (
                   <TouchableOpacity
                     key={cell.date.toISOString()}
                     onPress={() => onDayPress(cell.date!)}
+                    onLongPress={() => onLongPress(cell.date!)}
+                    delayLongPress={400}
                     style={styles.dayCell}
                     activeOpacity={0.6}
                   >
@@ -153,6 +162,15 @@ export function CalendarView({
                       <View
                         style={[styles.fastingBar, { backgroundColor: color }]}
                       />
+                    )}
+                    {/* Progress indicator */}
+                    {cellProgress && (
+                      <View style={[
+                        styles.progressDot,
+                        cellProgress === "completed"
+                          ? styles.progressDotCompleted
+                          : styles.progressDotCommitted,
+                      ]} />
                     )}
                   </TouchableOpacity>
                 );
@@ -323,6 +341,21 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 3,
+  },
+  progressDot: {
+    position: "absolute",
+    bottom: 5,
+    left: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  progressDotCompleted: {
+    backgroundColor: "#16a34a",
+  },
+  progressDotCommitted: {
+    backgroundColor: "#78350f",
+    opacity: 0.5,
   },
   legend: {
     backgroundColor: "#fff",

@@ -5,6 +5,13 @@
 // 4 = strict fast / Строг пост (Dark gray)
 export type FastingLevel = 0 | 1 | 2 | 3 | 4;
 
+export type DayProgress = 'committed' | 'completed';
+
+// Returns a consistent key for storing/looking up progress by date
+export function dateKey(date: Date): string {
+  return date.toDateString();
+}
+
 export interface DayData {
   date: Date;
   saint: string;         // Saint name in Macedonian
@@ -26,6 +33,11 @@ export interface NotificationSettings {
   notifyLevel3: boolean;
   notifyLevel2: boolean;
   notifyLevel1: boolean;
+  repeatDailyLevel4: boolean; // Notify every day leading up (true) or just once (false)
+  repeatDailyLevel3: boolean;
+  repeatDailyLevel2: boolean;
+  repeatDailyLevel1: boolean;
+  onlyPlanned: boolean; // Only notify for fast starts the user has committed to
   notificationTime: string; // "HH:MM" format, default "08:00"
 }
 
@@ -39,6 +51,11 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   notifyLevel3: true,
   notifyLevel2: true,
   notifyLevel1: true,
+  repeatDailyLevel4: false,
+  repeatDailyLevel3: false,
+  repeatDailyLevel2: false,
+  repeatDailyLevel1: false,
+  onlyPlanned: false,
   notificationTime: "08:00",
 };
 
@@ -46,8 +63,8 @@ export const FASTING_COLORS: Record<FastingLevel, string> = {
   0: "#4CAF50",  // Green
   1: "#795548",  // Brown
   2: "#4FC3F7",  // Light blue
-  3: "#F48FB1",  // Pink
-  4: "#616161",  // Dark gray
+  3: "#F59E0B",  // Amber / orange-yellow
+  4: "#DC2626",  // Red
 };
 
 export const FASTING_LABELS: Record<FastingLevel, string> = {
@@ -71,4 +88,4 @@ export const MONTH_NAMES_MK = [
   "Јули", "Август", "Септември", "Октомври", "Ноември", "Декември",
 ];
 
-export const DAY_NAMES_MK_SHORT = ["Нед", "Пон", "Вто", "Сре", "Чет", "Пет", "Саб"];
+export const DAY_NAMES_MK_SHORT = ["Пон", "Вто", "Сре", "Чет", "Пет", "Саб", "Нед"];

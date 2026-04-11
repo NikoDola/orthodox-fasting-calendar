@@ -8,7 +8,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import { FASTING_COLORS, FASTING_DESCRIPTIONS, MONTH_NAMES_MK } from "../types";
-import type { FastingLevel } from "../types";
+import type { FastingLevel, DayProgress } from "../types";
 
 interface DayData {
   date: Date;
@@ -22,6 +22,9 @@ interface DayData {
 
 interface Props {
   data: DayData;
+  progress?: DayProgress;
+  onSetProgress: (prog: DayProgress) => void;
+  onDeleteProgress: () => void;
   onClose: () => void;
 }
 
@@ -29,16 +32,16 @@ const FASTING_BG: Record<FastingLevel, string> = {
   0: "#f0fdf4",
   1: "#fffbeb",
   2: "#f0f9ff",
-  3: "#fdf2f8",
-  4: "#f5f5f4",
+  3: "#fffbeb",
+  4: "#fef2f2",
 };
 
 const FASTING_BORDER: Record<FastingLevel, string> = {
   0: "#bbf7d0",
   1: "#fde68a",
   2: "#bae6fd",
-  3: "#f9a8d4",
-  4: "#d6d3d1",
+  3: "#fcd34d",
+  4: "#fca5a5",
 };
 
 const DAY_NAMES = [
@@ -51,12 +54,18 @@ const DAY_NAMES = [
   "Сабота",
 ];
 
-export function DayDetail({ data, onClose }: Props) {
+export function DayDetail({ data, progress, onSetProgress, onDeleteProgress, onClose }: Props) {
   const { date, saint, description, fastingLevel, fastingLabel, isFeast, isToday } = data;
 
   const dayName = DAY_NAMES[date.getDay()];
   const dateStr = `${date.getDate()} ${MONTH_NAMES_MK[date.getMonth()]} ${date.getFullYear()}`;
   const color = FASTING_COLORS[fastingLevel];
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const isPast = d < today;
 
   return (
     <Modal
@@ -160,6 +169,60 @@ export function DayDetail({ data, onClose }: Props) {
                           </Text>
                         </View>
                       ))}
+                    </View>
+                  </View>
+
+                  {/* Progress / tracking */}
+                  <View>
+                    <Text style={styles.sectionLabel}>Мој пост</Text>
+
+                    {/* Current status badge */}
+                    {progress && (
+                      <View style={[
+                        styles.progressStatus,
+                        progress === "completed" ? styles.progressStatusCompleted : styles.progressStatusCommitted,
+                      ]}>
+                        <Text style={styles.progressStatusText}>
+                          {progress === "completed"
+                            ? "✓  Го направив овој пост"
+                            : "☑  Ќе го направам овој пост"}
+                        </Text>
+                      </View>
+                    )}
+
+                    <View style={styles.progressBtns}>
+                      {/* Mark completed — any date, not already completed */}
+                      {progress !== "completed" && (
+                        <TouchableOpacity
+                          style={[styles.progressBtn, styles.progressBtnComplete]}
+                          onPress={() => onSetProgress("completed")}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.progressBtnText}>✓  Го направив</Text>
+                        </TouchableOpacity>
+                      )}
+
+                      {/* Commit — only today/future, not already set */}
+                      {!isPast && !progress && (
+                        <TouchableOpacity
+                          style={[styles.progressBtn, styles.progressBtnCommit]}
+                          onPress={() => onSetProgress("committed")}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.progressBtnText}>☑  Ќе го направам</Text>
+                        </TouchableOpacity>
+                      )}
+
+                      {/* Delete */}
+                      {progress && (
+                        <TouchableOpacity
+                          style={[styles.progressBtn, styles.progressBtnDelete]}
+                          onPress={onDeleteProgress}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.progressBtnDeleteText}>✕  Избриши прогрес</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </View>
                 </View>
@@ -350,5 +413,53 @@ const styles = StyleSheet.create({
   },
   scaleNumInactive: {
     color: "#a8a29e",
+  },
+  progressStatus: {
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
+  },
+  progressStatusCompleted: {
+    backgroundColor: "#dcfce7",
+  },
+  progressStatusCommitted: {
+    backgroundColor: "#fef3c7",
+  },
+  progressStatusText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1c1917",
+  },
+  progressBtns: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  progressBtn: {
+    flex: 1,
+    minWidth: 120,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  progressBtnComplete: {
+    backgroundColor: "#16a34a",
+  },
+  progressBtnCommit: {
+    backgroundColor: "#78350f",
+  },
+  progressBtnDelete: {
+    backgroundColor: "#fee2e2",
+  },
+  progressBtnText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  progressBtnDeleteText: {
+    color: "#dc2626",
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

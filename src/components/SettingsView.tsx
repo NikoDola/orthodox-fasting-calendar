@@ -20,6 +20,7 @@ const LEVELS: {
   level: FastingLevel;
   key: keyof NotificationSettings;
   daysKey: keyof NotificationSettings;
+  repeatKey: keyof NotificationSettings;
   label: string;
   desc: string;
 }[] = [
@@ -27,6 +28,7 @@ const LEVELS: {
     level: 4,
     key: "notifyLevel4",
     daysKey: "level4Days",
+    repeatKey: "repeatDailyLevel4",
     label: FASTING_LABELS[4],
     desc: "Строго воздржување – без масло, без алкохол, без месо, без млечни производи.",
   },
@@ -34,6 +36,7 @@ const LEVELS: {
     level: 3,
     key: "notifyLevel3",
     daysKey: "level3Days",
+    repeatKey: "repeatDailyLevel3",
     label: FASTING_LABELS[3],
     desc: "Пост на масло – без месо и животински производи, масло и вино дозволени.",
   },
@@ -41,6 +44,7 @@ const LEVELS: {
     level: 2,
     key: "notifyLevel2",
     daysKey: "level2Days",
+    repeatKey: "repeatDailyLevel2",
     label: FASTING_LABELS[2],
     desc: "Пост на риба – јаде се риба, без месо и животински производи.",
   },
@@ -48,6 +52,7 @@ const LEVELS: {
     level: 1,
     key: "notifyLevel1",
     daysKey: "level1Days",
+    repeatKey: "repeatDailyLevel1",
     label: FASTING_LABELS[1],
     desc: "Само во Месопусната седмица – воздржување само од месо.",
   },
@@ -95,6 +100,21 @@ export function SettingsView({ settings, onChange }: Props) {
             </TouchableOpacity>
           </View>
 
+          {/* Only planned fasting */}
+          <View style={[styles.cardRow, styles.cardRowBorderTop]}>
+            <View style={styles.rowLeft}>
+              <Text style={styles.rowTitle2}>Само планирани постови</Text>
+              <Text style={styles.rowSub}>
+                Добивај известувања само за постовите кои сам ги планирал
+              </Text>
+            </View>
+            <Toggle
+              value={settings.onlyPlanned}
+              onChange={(v) => update({ onlyPlanned: v })}
+              disabled={!settings.enabled}
+            />
+          </View>
+
           {showTimePicker && (
             <DateTimePicker
               value={timeDate}
@@ -116,10 +136,12 @@ export function SettingsView({ settings, onChange }: Props) {
         {/* Per-level settings */}
         <Text style={styles.sectionHeader}>Поставки по ниво на пост</Text>
 
-        {LEVELS.map(({ level, key, daysKey, label, desc }) => {
+        {LEVELS.map(({ level, key, daysKey, repeatKey, label, desc }) => {
           const enabled = settings[key] as boolean;
           const days = settings[daysKey] as number;
+          const repeatDaily = settings[repeatKey] as boolean;
           const color = FASTING_COLORS[level];
+          const isActive = enabled && settings.enabled;
 
           return (
             <View key={level} style={styles.card}>
@@ -131,7 +153,7 @@ export function SettingsView({ settings, onChange }: Props) {
                   <Text style={styles.rowSubSmall}>{desc}</Text>
                 </View>
                 <Toggle
-                  value={enabled && settings.enabled}
+                  value={isActive}
                   onChange={(v) =>
                     update({ [key]: v } as Partial<NotificationSettings>)
                   }
@@ -155,11 +177,10 @@ export function SettingsView({ settings, onChange }: Props) {
                         [daysKey]: Math.max(0, days - 1),
                       } as Partial<NotificationSettings>)
                     }
-                    disabled={!enabled || !settings.enabled || days <= 0}
+                    disabled={!isActive || days <= 0}
                     style={[
                       styles.stepperBtn,
-                      (!enabled || !settings.enabled || days <= 0) &&
-                        styles.disabled,
+                      (!isActive || days <= 0) && styles.disabled,
                     ]}
                     activeOpacity={0.7}
                   >
@@ -172,15 +193,56 @@ export function SettingsView({ settings, onChange }: Props) {
                         [daysKey]: Math.min(14, days + 1),
                       } as Partial<NotificationSettings>)
                     }
-                    disabled={!enabled || !settings.enabled || days >= 14}
+                    disabled={!isActive || days >= 14}
                     style={[
                       styles.stepperBtn,
-                      (!enabled || !settings.enabled || days >= 14) &&
-                        styles.disabled,
+                      (!isActive || days >= 14) && styles.disabled,
                     ]}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.stepperBtnText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Repeat mode: every day / only once */}
+              <View style={[styles.cardRow, styles.cardRowBorderTop, !isActive && styles.disabled]}>
+                <View style={styles.rowLeft}>
+                  <Text style={styles.rowTitle2}>Вид на известување</Text>
+                  <Text style={styles.rowSub}>
+                    {repeatDaily
+                      ? `Секој ден во текот на ${days} ${days === 1 ? "ден" : "денови"}`
+                      : "Само еднаш, на почетниот ден"}
+                  </Text>
+                </View>
+                <View style={styles.repeatToggle}>
+                  <TouchableOpacity
+                    onPress={() =>
+                      isActive && update({ [repeatKey]: false } as Partial<NotificationSettings>)
+                    }
+                    style={[
+                      styles.repeatBtn,
+                      !repeatDaily && styles.repeatBtnActive,
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.repeatBtnText, !repeatDaily && styles.repeatBtnTextActive]}>
+                      Еднаш
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() =>
+                      isActive && update({ [repeatKey]: true } as Partial<NotificationSettings>)
+                    }
+                    style={[
+                      styles.repeatBtn,
+                      repeatDaily && styles.repeatBtnActive,
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.repeatBtnText, repeatDaily && styles.repeatBtnTextActive]}>
+                      Секој ден
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -422,7 +484,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   toggleOn: {
-    backgroundColor: "#78350f",
+    backgroundColor: "#16a34a",
   },
   toggleOff: {
     backgroundColor: "#d6d3d1",
@@ -446,5 +508,28 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.4,
+  },
+  repeatToggle: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderColor: "#d6d3d1",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  repeatBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: "#f5f5f4",
+  },
+  repeatBtnActive: {
+    backgroundColor: "#78350f",
+  },
+  repeatBtnText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#57534e",
+  },
+  repeatBtnTextActive: {
+    color: "#fff",
   },
 });
