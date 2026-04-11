@@ -100,19 +100,35 @@ export function SettingsView({ settings, onChange }: Props) {
             </TouchableOpacity>
           </View>
 
-          {/* Only planned fasting */}
-          <View style={[styles.cardRow, styles.cardRowBorderTop]}>
-            <View style={styles.rowLeft}>
-              <Text style={styles.rowTitle2}>Само планирани постови</Text>
-              <Text style={styles.rowSub}>
-                Добивај известувања само за постовите кои сам ги планирал
-              </Text>
-            </View>
-            <Toggle
-              value={settings.onlyPlanned}
-              onChange={(v) => update({ onlyPlanned: v })}
-              disabled={!settings.enabled}
-            />
+          {/* Notification filter — radio buttons */}
+          <View style={[styles.cardRowColumn, styles.cardRowBorderTop, !settings.enabled && styles.disabled]}>
+            <Text style={styles.rowTitle2}>Вид на известување</Text>
+            <TouchableOpacity
+              style={styles.radioRow}
+              onPress={() => settings.enabled && update({ onlyPlanned: false })}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.radioCircle, !settings.onlyPlanned && styles.radioCircleSelected]}>
+                {!settings.onlyPlanned && <View style={styles.radioDot} />}
+              </View>
+              <View style={styles.radioText}>
+                <Text style={styles.radioLabel}>Сите Постови</Text>
+                <Text style={styles.rowSub}>Добивај известување за секој пост</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.radioRow}
+              onPress={() => settings.enabled && update({ onlyPlanned: true })}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.radioCircle, settings.onlyPlanned && styles.radioCircleSelected]}>
+                {settings.onlyPlanned && <View style={styles.radioDot} />}
+              </View>
+              <View style={styles.radioText}>
+                <Text style={styles.radioLabel}>Само Планирани Постови</Text>
+                <Text style={styles.rowSub}>Само за постовите кои сам ги планирал</Text>
+              </View>
+            </TouchableOpacity>
           </View>
 
           {showTimePicker && (
@@ -508,6 +524,43 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.4,
+  },
+  cardRowColumn: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  radioRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  radioCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: "#d6d3d1",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  radioCircleSelected: {
+    borderColor: "#16a34a",
+  },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#16a34a",
+  },
+  radioText: {
+    flex: 1,
+  },
+  radioLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1c1917",
   },
   repeatToggle: {
     flexDirection: "row",

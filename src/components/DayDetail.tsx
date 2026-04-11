@@ -5,8 +5,9 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
-  TouchableWithoutFeedback,
+  StatusBar,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { FASTING_COLORS, FASTING_DESCRIPTIONS, MONTH_NAMES_MK } from "../types";
 import type { FastingLevel, DayProgress } from "../types";
 
@@ -45,13 +46,7 @@ const FASTING_BORDER: Record<FastingLevel, string> = {
 };
 
 const DAY_NAMES = [
-  "Недела",
-  "Понеделник",
-  "Вторник",
-  "Среда",
-  "Четврток",
-  "Петок",
-  "Сабота",
+  "Недела", "Понеделник", "Вторник", "Среда", "Четврток", "Петок", "Сабота",
 ];
 
 export function DayDetail({ data, progress, onSetProgress, onDeleteProgress, onClose }: Props) {
@@ -61,257 +56,240 @@ export function DayDetail({ data, progress, onSetProgress, onDeleteProgress, onC
   const dateStr = `${date.getDate()} ${MONTH_NAMES_MK[date.getMonth()]} ${date.getFullYear()}`;
   const color = FASTING_COLORS[fastingLevel];
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
-  const isPast = d < today;
+  const isPast = d < now;
+  const isFuture = d > now;
 
   return (
     <Modal
       visible
-      transparent
+      transparent={false}
       animationType="slide"
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.backdrop}>
-          <TouchableWithoutFeedback>
-            <View style={styles.sheet}>
-              {/* Pull handle */}
-              <View style={styles.handleRow}>
-                <View style={styles.handle} />
+      <StatusBar barStyle="light-content" backgroundColor="#78350f" />
+      <SafeAreaView style={styles.container}>
+        {/* Top navigation bar */}
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={onClose} style={styles.navBtn} activeOpacity={0.7}>
+            <Text style={styles.navBtnText}>←</Text>
+          </TouchableOpacity>
+
+          <View style={styles.topBarCenter}>
+            {isToday && (
+              <View style={styles.todayBadge}>
+                <Text style={styles.todayBadgeText}>Денес</Text>
               </View>
+            )}
+            <Text style={styles.topBarDayName}>{dayName}</Text>
+            <Text style={styles.topBarDate}>{dateStr}</Text>
+          </View>
 
-              {/* Header */}
-              <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                  {isToday && (
-                    <View style={styles.todayBadge}>
-                      <Text style={styles.todayBadgeText}>Денес</Text>
-                    </View>
-                  )}
-                  <Text style={styles.dayName}>{dayName}</Text>
-                  <Text style={styles.dateStr}>{dateStr}</Text>
-                </View>
-                <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-                  <Text style={styles.closeBtnText}>×</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Scrollable content */}
-              <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-                {/* Cross banner */}
-                <View style={styles.banner}>
-                  <Text style={styles.bannerCross}>☦</Text>
-                  {isFeast && (
-                    <View style={styles.feastBadge}>
-                      <Text style={styles.feastBadgeText}>★ Празник</Text>
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.content}>
-                  {/* Saint */}
-                  <View>
-                    <Text style={styles.sectionLabel}>Светец на денот</Text>
-                    <Text style={styles.saintName}>{saint}</Text>
-                    <Text style={styles.saintDesc}>{description}</Text>
-                  </View>
-
-                  {/* Fasting card */}
-                  <View
-                    style={[
-                      styles.fastingCard,
-                      {
-                        backgroundColor: FASTING_BG[fastingLevel],
-                        borderColor: FASTING_BORDER[fastingLevel],
-                      },
-                    ]}
-                  >
-                    <View style={styles.fastingCardHeader}>
-                      <View
-                        style={[styles.fastingColorDot, { backgroundColor: color }]}
-                      />
-                      <Text style={styles.fastingLabel}>{fastingLabel}</Text>
-                    </View>
-                    <Text style={styles.fastingDesc}>
-                      {FASTING_DESCRIPTIONS[fastingLevel]}
-                    </Text>
-                  </View>
-
-                  {/* Level scale */}
-                  <View>
-                    <Text style={styles.sectionLabel}>Ниво на пост</Text>
-                    <View style={styles.scaleRow}>
-                      {([0, 1, 2, 3, 4] as FastingLevel[]).map((lvl) => (
-                        <View key={lvl} style={styles.scaleItem}>
-                          <View
-                            style={[
-                              styles.scaleBar,
-                              {
-                                backgroundColor: FASTING_COLORS[lvl],
-                                opacity: lvl === fastingLevel ? 1 : 0.3,
-                                transform: [{ scaleY: lvl === fastingLevel ? 1.2 : 1 }],
-                              },
-                            ]}
-                          />
-                          <Text
-                            style={[
-                              styles.scaleNum,
-                              lvl === fastingLevel
-                                ? styles.scaleNumActive
-                                : styles.scaleNumInactive,
-                            ]}
-                          >
-                            {lvl}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-
-                  {/* Progress / tracking */}
-                  <View>
-                    <Text style={styles.sectionLabel}>Мој пост</Text>
-
-                    {/* Current status badge */}
-                    {progress && (
-                      <View style={[
-                        styles.progressStatus,
-                        progress === "completed" ? styles.progressStatusCompleted : styles.progressStatusCommitted,
-                      ]}>
-                        <Text style={styles.progressStatusText}>
-                          {progress === "completed"
-                            ? "✓  Го направив овој пост"
-                            : "☑  Ќе го направам овој пост"}
-                        </Text>
-                      </View>
-                    )}
-
-                    <View style={styles.progressBtns}>
-                      {/* Mark completed — any date, not already completed */}
-                      {progress !== "completed" && (
-                        <TouchableOpacity
-                          style={[styles.progressBtn, styles.progressBtnComplete]}
-                          onPress={() => onSetProgress("completed")}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={styles.progressBtnText}>✓  Го направив</Text>
-                        </TouchableOpacity>
-                      )}
-
-                      {/* Commit — only today/future, not already set */}
-                      {!isPast && !progress && (
-                        <TouchableOpacity
-                          style={[styles.progressBtn, styles.progressBtnCommit]}
-                          onPress={() => onSetProgress("committed")}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={styles.progressBtnText}>☑  Ќе го направам</Text>
-                        </TouchableOpacity>
-                      )}
-
-                      {/* Delete */}
-                      {progress && (
-                        <TouchableOpacity
-                          style={[styles.progressBtn, styles.progressBtnDelete]}
-                          onPress={onDeleteProgress}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={styles.progressBtnDeleteText}>✕  Избриши прогрес</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-                </View>
-              </ScrollView>
-            </View>
-          </TouchableWithoutFeedback>
+          <TouchableOpacity onPress={onClose} style={styles.navBtn} activeOpacity={0.7}>
+            <Text style={styles.navBtnText}>×</Text>
+          </TouchableOpacity>
         </View>
-      </TouchableWithoutFeedback>
+
+        {/* Scrollable content */}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Cross banner */}
+          <View style={styles.banner}>
+            <Text style={styles.bannerCross}>☦</Text>
+            {isFeast && (
+              <View style={styles.feastBadge}>
+                <Text style={styles.feastBadgeText}>★ Празник</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Saint */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Светец на денот</Text>
+            <Text style={styles.saintName}>{saint}</Text>
+            <Text style={styles.saintDesc}>{description}</Text>
+          </View>
+
+          {/* Fasting card */}
+          <View style={[styles.fastingCard, { backgroundColor: FASTING_BG[fastingLevel], borderColor: FASTING_BORDER[fastingLevel] }]}>
+            <View style={styles.fastingCardHeader}>
+              <View style={[styles.fastingColorDot, { backgroundColor: color }]} />
+              <Text style={styles.fastingLabel}>{fastingLabel}</Text>
+            </View>
+            <Text style={styles.fastingDesc}>{FASTING_DESCRIPTIONS[fastingLevel]}</Text>
+          </View>
+
+          {/* Level scale */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Ниво на пост</Text>
+            <View style={styles.scaleRow}>
+              {([0, 1, 2, 3, 4] as FastingLevel[]).map((lvl) => (
+                <View key={lvl} style={styles.scaleItem}>
+                  <View style={[styles.scaleBar, {
+                    backgroundColor: FASTING_COLORS[lvl],
+                    opacity: lvl === fastingLevel ? 1 : 0.3,
+                    transform: [{ scaleY: lvl === fastingLevel ? 1.2 : 1 }],
+                  }]} />
+                  <Text style={[styles.scaleNum, lvl === fastingLevel ? styles.scaleNumActive : styles.scaleNumInactive]}>
+                    {lvl}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Progress / tracking */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Мој пост</Text>
+
+            {/* ── PAST ─────────────────────────────────────── */}
+            {isPast && (
+              <>
+                {progress === "completed" ? (
+                  <>
+                    <View style={[styles.statusBadge, styles.statusCompleted]}>
+                      <Text style={styles.statusText}>✓  Овој пост е веќе направен</Text>
+                    </View>
+                    <TouchableOpacity style={[styles.actionBtn, styles.btnDelete]} onPress={onDeleteProgress} activeOpacity={0.8}>
+                      <Text style={styles.btnDeleteText}>✕  Избриши го од прогрес</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <TouchableOpacity style={[styles.actionBtn, styles.btnComplete]} onPress={() => onSetProgress("completed")} activeOpacity={0.8}>
+                    <Text style={styles.btnText}>✓  Го направив овој пост</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+
+            {/* ── TODAY ────────────────────────────────────── */}
+            {isToday && (
+              <>
+                {progress === "completed" && (
+                  <>
+                    <View style={[styles.statusBadge, styles.statusCompleted]}>
+                      <Text style={styles.statusText}>✓  Го направив денес</Text>
+                    </View>
+                    <TouchableOpacity style={[styles.actionBtn, styles.btnDelete]} onPress={onDeleteProgress} activeOpacity={0.8}>
+                      <Text style={styles.btnDeleteText}>✕  Избриши го од прогрес</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+                {progress === "committed" && (
+                  <>
+                    <View style={[styles.statusBadge, styles.statusCommitted]}>
+                      <Text style={styles.statusText}>☑  Планирано за денес</Text>
+                    </View>
+                    <TouchableOpacity style={[styles.actionBtn, styles.btnComplete]} onPress={() => onSetProgress("completed")} activeOpacity={0.8}>
+                      <Text style={styles.btnText}>✓  Го направив овој пост</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.actionBtn, styles.btnDelete, { marginTop: 8 }]} onPress={onDeleteProgress} activeOpacity={0.8}>
+                      <Text style={styles.btnDeleteText}>✕  Избриши го од прогрес</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+                {!progress && (
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity style={[styles.actionBtn, styles.btnComplete, styles.actionBtnFlex]} onPress={() => onSetProgress("completed")} activeOpacity={0.8}>
+                      <Text style={styles.btnText}>✓  Го направив</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.actionBtn, styles.btnCommit, styles.actionBtnFlex]} onPress={() => onSetProgress("committed")} activeOpacity={0.8}>
+                      <Text style={styles.btnText}>☑  Ќе го направам</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            )}
+
+            {/* ── FUTURE ───────────────────────────────────── */}
+            {isFuture && (
+              <>
+                {progress === "committed" ? (
+                  <>
+                    <View style={[styles.statusBadge, styles.statusCommitted]}>
+                      <Text style={styles.statusText}>☑  Ќе го направам овој пост</Text>
+                    </View>
+                    <TouchableOpacity style={[styles.actionBtn, styles.btnDelete]} onPress={onDeleteProgress} activeOpacity={0.8}>
+                      <Text style={styles.btnDeleteText}>✕  Избриши го од прогрес</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <TouchableOpacity style={[styles.actionBtn, styles.btnCommit]} onPress={() => onSetProgress("committed")} activeOpacity={0.8}>
+                    <Text style={styles.btnText}>☑  Ќе го направам овој пост</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  container: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
+    backgroundColor: "#fafaf9",
   },
-  sheet: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: "90%",
-    overflow: "hidden",
-  },
-  handleRow: {
-    alignItems: "center",
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#d6d3d1",
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f5f5f4",
+  topBar: {
+    backgroundColor: "#78350f",
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 8,
+    paddingVertical: 10,
   },
-  headerLeft: {
+  navBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 20,
+  },
+  navBtnText: {
+    fontSize: 24,
+    color: "#fff",
+    lineHeight: 28,
+  },
+  topBarCenter: {
     flex: 1,
+    alignItems: "center",
   },
   todayBadge: {
-    backgroundColor: "#78350f",
-    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    alignSelf: "flex-start",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   todayBadgeText: {
-    color: "#fff",
+    color: "#fde68a",
     fontSize: 11,
     fontWeight: "600",
   },
-  dayName: {
-    fontSize: 13,
-    color: "#78716c",
+  topBarDayName: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.75)",
   },
-  dateStr: {
-    fontSize: 22,
+  topBarDate: {
+    fontSize: 16,
     fontWeight: "bold",
-    color: "#1c1917",
-    marginTop: 2,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#f5f5f4",
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 12,
-    marginTop: 4,
-  },
-  closeBtnText: {
-    fontSize: 20,
-    color: "#78716c",
-    lineHeight: 24,
+    color: "#fff",
+    marginTop: 1,
   },
   scroll: {
-    flexGrow: 0,
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 40,
   },
   banner: {
     height: 160,
@@ -338,18 +316,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "600",
   },
-  content: {
+  section: {
     paddingHorizontal: 20,
-    paddingBottom: 32,
-    paddingTop: 16,
-    gap: 16,
+    paddingTop: 20,
   },
   sectionLabel: {
     fontSize: 10,
     textTransform: "uppercase",
     letterSpacing: 1,
     color: "#a8a29e",
-    marginBottom: 4,
+    marginBottom: 6,
   },
   saintName: {
     fontSize: 20,
@@ -363,6 +339,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   fastingCard: {
+    marginHorizontal: 20,
+    marginTop: 20,
     borderRadius: 16,
     borderWidth: 1,
     padding: 16,
@@ -404,62 +382,45 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
   },
-  scaleNum: {
-    fontSize: 11,
-  },
-  scaleNumActive: {
-    color: "#44403c",
-    fontWeight: "bold",
-  },
-  scaleNumInactive: {
-    color: "#a8a29e",
-  },
-  progressStatus: {
+  scaleNum: { fontSize: 11 },
+  scaleNumActive: { color: "#44403c", fontWeight: "bold" },
+  scaleNumInactive: { color: "#a8a29e" },
+  statusBadge: {
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
   },
-  progressStatusCompleted: {
-    backgroundColor: "#dcfce7",
-  },
-  progressStatusCommitted: {
-    backgroundColor: "#fef3c7",
-  },
-  progressStatusText: {
-    fontSize: 13,
+  statusCompleted: { backgroundColor: "#dcfce7" },
+  statusCommitted: { backgroundColor: "#fef3c7" },
+  statusText: {
+    fontSize: 14,
     fontWeight: "600",
     color: "#1c1917",
   },
-  progressBtns: {
+  actionRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+    gap: 10,
   },
-  progressBtn: {
-    flex: 1,
-    minWidth: 120,
-    paddingVertical: 12,
-    borderRadius: 10,
+  actionBtn: {
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: "center",
   },
-  progressBtnComplete: {
-    backgroundColor: "#16a34a",
+  actionBtnFlex: {
+    flex: 1,
   },
-  progressBtnCommit: {
-    backgroundColor: "#78350f",
-  },
-  progressBtnDelete: {
-    backgroundColor: "#fee2e2",
-  },
-  progressBtnText: {
+  btnComplete: { backgroundColor: "#16a34a" },
+  btnCommit: { backgroundColor: "#78350f" },
+  btnDelete: { backgroundColor: "#fee2e2" },
+  btnText: {
     color: "#fff",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
-  progressBtnDeleteText: {
+  btnDeleteText: {
     color: "#dc2626",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
   },
 });

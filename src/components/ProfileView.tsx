@@ -1,25 +1,21 @@
 import { useMemo } from "react";
 import {
-  Modal,
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  TouchableWithoutFeedback,
+  StatusBar,
 } from "react-native";
-import {
-  FASTING_COLORS,
-  FASTING_LABELS,
-  dateKey,
-} from "../types";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { FASTING_COLORS, FASTING_LABELS, dateKey } from "../types";
 import type { DayProgress, FastingLevel } from "../types";
 import { computeFastingLevel } from "../utils/fasting";
 import { orthodoxEaster } from "../utils/easter";
 
 interface Props {
   progress: Record<string, DayProgress>;
-  onClose: () => void;
+  onBack: () => void;
 }
 
 const TRACKED_LEVELS: FastingLevel[] = [4, 3, 2, 1];
@@ -32,7 +28,7 @@ const LEVEL_DESC: Record<FastingLevel, string> = {
   4: "Строго – без масло, вино, месо",
 };
 
-export function ProfileView({ progress, onClose }: Props) {
+export function ProfileView({ progress, onBack }: Props) {
   const stats = useMemo(() => {
     const completed: Record<FastingLevel, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
     const committed: Record<FastingLevel, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
@@ -53,181 +49,124 @@ export function ProfileView({ progress, onClose }: Props) {
   const totalCommitted = TRACKED_LEVELS.reduce<number>((s, l) => s + stats.committed[l], 0);
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.backdrop}>
-          <TouchableWithoutFeedback>
-            <View style={styles.sheet}>
-              {/* Handle */}
-              <View style={styles.handleRow}>
-                <View style={styles.handle} />
-              </View>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#78350f" />
 
-              {/* Header */}
-              <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                  <Text style={styles.headerTitle}>Мој Профил</Text>
-                  <Text style={styles.headerSub}>Историја на постење</Text>
-                </View>
-                <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
-                  <Text style={styles.closeBtnText}>×</Text>
-                </TouchableOpacity>
-              </View>
+      {/* Top nav bar */}
+      <View style={styles.topBar}>
+        <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
+          <Text style={styles.backBtnText}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.topBarTitle}>Мој Профил</Text>
+        <View style={styles.backBtn} />
+      </View>
 
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={styles.content}>
+      <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
+        <View style={styles.content}>
 
-                  {/* Summary row */}
-                  <View style={styles.summaryRow}>
-                    <View style={styles.summaryCard}>
-                      <Text style={styles.summaryNum}>{totalCompleted}</Text>
-                      <Text style={styles.summaryLabel}>Направени{"\n"}денови</Text>
-                    </View>
-                    <View style={styles.summaryDivider} />
-                    <View style={styles.summaryCard}>
-                      <Text style={[styles.summaryNum, styles.summaryNumCommitted]}>{totalCommitted}</Text>
-                      <Text style={styles.summaryLabel}>Планирани{"\n"}денови</Text>
-                    </View>
-                  </View>
-
-                  {/* Per-level breakdown */}
-                  <Text style={styles.sectionLabel}>По вид на пост</Text>
-
-                  {TRACKED_LEVELS.map((level) => {
-                    const color = FASTING_COLORS[level];
-                    const done = stats.completed[level];
-                    const planned = stats.committed[level];
-                    const maxVal = Math.max(done, 1);
-
-                    return (
-                      <View key={level} style={styles.levelCard}>
-                        <View style={styles.levelHeader}>
-                          <View style={[styles.levelDot, { backgroundColor: color }]} />
-                          <View style={styles.levelInfo}>
-                            <Text style={styles.levelName}>{FASTING_LABELS[level]}</Text>
-                            <Text style={styles.levelDesc}>{LEVEL_DESC[level]}</Text>
-                          </View>
-                        </View>
-
-                        {/* Completed row */}
-                        <View style={styles.barRow}>
-                          <Text style={styles.barLabel}>Направени</Text>
-                          <View style={styles.barTrack}>
-                            <View
-                              style={[
-                                styles.barFill,
-                                {
-                                  backgroundColor: color,
-                                  width: done === 0 ? 4 : `${Math.min(100, (done / Math.max(totalCompleted, 1)) * 100)}%` as any,
-                                },
-                              ]}
-                            />
-                          </View>
-                          <Text style={styles.barCount}>{done}</Text>
-                        </View>
-
-                        {/* Committed row */}
-                        <View style={styles.barRow}>
-                          <Text style={styles.barLabel}>Планирани</Text>
-                          <View style={styles.barTrack}>
-                            <View
-                              style={[
-                                styles.barFill,
-                                styles.barFillCommitted,
-                                {
-                                  width: planned === 0 ? 4 : `${Math.min(100, (planned / Math.max(totalCommitted, 1)) * 100)}%` as any,
-                                },
-                              ]}
-                            />
-                          </View>
-                          <Text style={styles.barCount}>{planned}</Text>
-                        </View>
-                      </View>
-                    );
-                  })}
-
-                  {totalCompleted === 0 && totalCommitted === 0 && (
-                    <View style={styles.emptyCard}>
-                      <Text style={styles.emptyCross}>☦</Text>
-                      <Text style={styles.emptyTitle}>Нема забележани постови</Text>
-                      <Text style={styles.emptyBody}>
-                        Притисни и задржи на датум во календарот за да ги следиш твоите постови.
-                      </Text>
-                    </View>
-                  )}
-
-                  <View style={styles.bottomPad} />
-                </View>
-              </ScrollView>
+          {/* Summary row */}
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryNum}>{totalCompleted}</Text>
+              <Text style={styles.summaryLabel}>Направени{"\n"}денови</Text>
             </View>
-          </TouchableWithoutFeedback>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryCard}>
+              <Text style={[styles.summaryNum, styles.summaryNumCommitted]}>{totalCommitted}</Text>
+              <Text style={styles.summaryLabel}>Планирани{"\n"}денови</Text>
+            </View>
+          </View>
+
+          <Text style={styles.sectionLabel}>По вид на пост</Text>
+
+          {TRACKED_LEVELS.map((level) => {
+            const color = FASTING_COLORS[level];
+            const done = stats.completed[level];
+            const planned = stats.committed[level];
+
+            return (
+              <View key={level} style={styles.levelCard}>
+                <View style={styles.levelHeader}>
+                  <View style={[styles.levelDot, { backgroundColor: color }]} />
+                  <View style={styles.levelInfo}>
+                    <Text style={styles.levelName}>{FASTING_LABELS[level]}</Text>
+                    <Text style={styles.levelDesc}>{LEVEL_DESC[level]}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.barRow}>
+                  <Text style={styles.barLabel}>Направени</Text>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, {
+                      backgroundColor: color,
+                      width: totalCompleted === 0 ? 0 : `${Math.max(4, Math.round((done / totalCompleted) * 100))}%` as any,
+                    }]} />
+                  </View>
+                  <Text style={styles.barCount}>{done}</Text>
+                </View>
+
+                <View style={styles.barRow}>
+                  <Text style={styles.barLabel}>Планирани</Text>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, styles.barFillCommitted, {
+                      width: totalCommitted === 0 ? 0 : `${Math.max(4, Math.round((planned / totalCommitted) * 100))}%` as any,
+                    }]} />
+                  </View>
+                  <Text style={styles.barCount}>{planned}</Text>
+                </View>
+              </View>
+            );
+          })}
+
+          {totalCompleted === 0 && totalCommitted === 0 && (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyCross}>☦</Text>
+              <Text style={styles.emptyTitle}>Нема забележани постови</Text>
+              <Text style={styles.emptyBody}>
+                Притисни и задржи на датум во календарот за да ги следиш твоите постови.
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.bottomPad} />
         </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  container: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
     backgroundColor: "#fafaf9",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: "90%",
   },
-  handleRow: {
-    alignItems: "center",
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#d6d3d1",
-  },
-  header: {
+  topBar: {
+    backgroundColor: "#78350f",
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f5f5f4",
+    paddingHorizontal: 8,
+    paddingVertical: 10,
   },
-  headerLeft: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#1c1917",
-  },
-  headerSub: {
-    fontSize: 13,
-    color: "#78716c",
-    marginTop: 2,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#f5f5f4",
+  backBtn: {
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 12,
-    marginTop: 4,
+    borderRadius: 20,
   },
-  closeBtnText: {
-    fontSize: 20,
-    color: "#78716c",
-    lineHeight: 24,
+  backBtnText: {
+    fontSize: 24,
+    color: "#fff",
+    lineHeight: 28,
+  },
+  topBarTitle: {
+    fontSize: 17,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  scroll: {
+    flex: 1,
   },
   content: {
     padding: 16,
@@ -247,7 +186,7 @@ const styles = StyleSheet.create({
   summaryCard: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 20,
+    paddingVertical: 24,
   },
   summaryDivider: {
     width: 1,
@@ -255,7 +194,7 @@ const styles = StyleSheet.create({
     marginVertical: 16,
   },
   summaryNum: {
-    fontSize: 36,
+    fontSize: 40,
     fontWeight: "bold",
     color: "#16a34a",
   },
@@ -300,9 +239,7 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     flexShrink: 0,
   },
-  levelInfo: {
-    flex: 1,
-  },
+  levelInfo: { flex: 1 },
   levelName: {
     fontSize: 15,
     fontWeight: "bold",
@@ -333,7 +270,7 @@ const styles = StyleSheet.create({
   barFill: {
     height: "100%",
     borderRadius: 4,
-    minWidth: 4,
+    minWidth: 0,
   },
   barFillCommitted: {
     backgroundColor: "#78350f",
@@ -372,7 +309,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
   },
-  bottomPad: {
-    height: 16,
-  },
+  bottomPad: { height: 16 },
 });

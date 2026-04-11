@@ -100,6 +100,13 @@ function MiniMonth({ year, month, today, easter, onDayPress, onLongPress, progre
         isToday: date.toDateString() === today.toDateString(),
       });
     }
+    // Pad the last row to a full 7 so cells don't stretch
+    const remainder = result.length % 7;
+    if (remainder !== 0) {
+      for (let i = 0; i < 7 - remainder; i++) {
+        result.push({ date: null, level: 0, isFeast: false, isToday: false });
+      }
+    }
     return result;
   }, [year, month, easter, startDow, daysInMonth, today]);
 

@@ -49,7 +49,7 @@ export default function App() {
 
   // Long-press popup state
   const [longPressDate, setLongPressDate] = useState<Date | null>(null);
-  const [showProfile, setShowProfile] = useState(false);
+  const [screen, setScreen] = useState<"main" | "profile">("main");
 
   const getEaster = useCallback((year: number) => orthodoxEaster(year), []);
 
@@ -96,6 +96,16 @@ export default function App() {
       })()
     : null;
 
+  // ── Profile screen ─────────────────────────────────────────
+  if (screen === "profile") {
+    return (
+      <SafeAreaProvider>
+        <ProfileView progress={progress} onBack={() => setScreen("main")} />
+      </SafeAreaProvider>
+    );
+  }
+
+  // ── Main screen ─────────────────────────────────────────────
   return (
     <SafeAreaProvider>
     <SafeAreaView style={styles.container}>
@@ -116,15 +126,12 @@ export default function App() {
             {([0, 1, 2, 3, 4] as const).map((level) => (
               <View
                 key={level}
-                style={[
-                  styles.legendDot,
-                  { backgroundColor: FASTING_COLORS[level] },
-                ]}
+                style={[styles.legendDot, { backgroundColor: FASTING_COLORS[level] }]}
               />
             ))}
           </View>
           <TouchableOpacity
-            onPress={() => setShowProfile(true)}
+            onPress={() => setScreen("profile")}
             style={styles.profileBtn}
             activeOpacity={0.7}
           >
@@ -170,19 +177,14 @@ export default function App() {
             activeOpacity={0.7}
           >
             <Text style={styles.navIcon}>{icon}</Text>
-            <Text
-              style={[
-                styles.navLabel,
-                activeTab === tab ? styles.navLabelActive : styles.navLabelInactive,
-              ]}
-            >
+            <Text style={[styles.navLabel, activeTab === tab ? styles.navLabelActive : styles.navLabelInactive]}>
               {label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Day Detail Modal */}
+      {/* Day Detail — full screen modal */}
       {selectedDayData && (
         <DayDetail
           data={selectedDayData}
@@ -190,14 +192,6 @@ export default function App() {
           onSetProgress={(prog) => handleSetProgress(selectedDayData.date, prog)}
           onDeleteProgress={() => handleDeleteProgress(selectedDayData.date)}
           onClose={handleCloseDetail}
-        />
-      )}
-
-      {/* Profile modal */}
-      {showProfile && (
-        <ProfileView
-          progress={progress}
-          onClose={() => setShowProfile(false)}
         />
       )}
 

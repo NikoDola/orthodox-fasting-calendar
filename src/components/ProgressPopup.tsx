@@ -22,17 +22,16 @@ interface Props {
 }
 
 export function ProgressPopup({ date, progress, onSetProgress, onDelete, onClose }: Props) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
-  const isPast = d < today;
+  const isPast = d < now;
+  const isFuture = d > now;
+  const isToday = d.getTime() === now.getTime();
 
   const dayName = DAY_NAMES_FULL[date.getDay()];
   const dateStr = `${date.getDate()} ${MONTH_NAMES_MK[date.getMonth()]} ${date.getFullYear()}`;
-
-  const canComplete = progress !== "completed";
-  const canCommit = !isPast && !progress;
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
@@ -44,58 +43,83 @@ export function ProgressPopup({ date, progress, onSetProgress, onDelete, onClose
               <Text style={styles.dayName}>{dayName}</Text>
               <Text style={styles.dateStr}>{dateStr}</Text>
 
-              {/* Current status */}
-              {progress && (
-                <View style={[
-                  styles.statusBadge,
-                  progress === "completed" ? styles.statusCompleted : styles.statusCommitted,
-                ]}>
-                  <Text style={styles.statusText}>
-                    {progress === "completed" ? "✓ Го направив" : "☑ Ќе го направам"}
-                  </Text>
-                </View>
-              )}
-
               <View style={styles.buttons}>
-                {/* Mark as completed */}
-                {canComplete && (
-                  <TouchableOpacity
-                    style={[styles.btn, styles.btnComplete]}
-                    onPress={() => onSetProgress("completed")}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.btnText}>✓  Го направив овој пост</Text>
-                  </TouchableOpacity>
+
+                {/* ── PAST ───────────────────────────── */}
+                {isPast && (
+                  progress === "completed" ? (
+                    <>
+                      <View style={[styles.statusBadge, styles.statusCompleted]}>
+                        <Text style={styles.statusText}>✓  Овој пост е веќе направен</Text>
+                      </View>
+                      <TouchableOpacity style={[styles.btn, styles.btnDelete]} onPress={onDelete} activeOpacity={0.8}>
+                        <Text style={styles.btnDeleteText}>✕  Избриши го од прогрес</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity style={[styles.btn, styles.btnComplete]} onPress={() => onSetProgress("completed")} activeOpacity={0.8}>
+                      <Text style={styles.btnText}>✓  Го направив овој пост</Text>
+                    </TouchableOpacity>
+                  )
                 )}
 
-                {/* Commit to future fasting */}
-                {canCommit && (
-                  <TouchableOpacity
-                    style={[styles.btn, styles.btnCommit]}
-                    onPress={() => onSetProgress("committed")}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.btnText}>☑  Ќе го направам овој пост</Text>
-                  </TouchableOpacity>
+                {/* ── TODAY ──────────────────────────── */}
+                {isToday && (
+                  <>
+                    {progress === "completed" ? (
+                      <>
+                        <View style={[styles.statusBadge, styles.statusCompleted]}>
+                          <Text style={styles.statusText}>✓  Го направив денес</Text>
+                        </View>
+                        <TouchableOpacity style={[styles.btn, styles.btnDelete]} onPress={onDelete} activeOpacity={0.8}>
+                          <Text style={styles.btnDeleteText}>✕  Избриши го од прогрес</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : progress === "committed" ? (
+                      <>
+                        <View style={[styles.statusBadge, styles.statusCommitted]}>
+                          <Text style={styles.statusText}>☑  Планирано за денес</Text>
+                        </View>
+                        <TouchableOpacity style={[styles.btn, styles.btnComplete]} onPress={() => onSetProgress("completed")} activeOpacity={0.8}>
+                          <Text style={styles.btnText}>✓  Го направив овој пост</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.btn, styles.btnDelete]} onPress={onDelete} activeOpacity={0.8}>
+                          <Text style={styles.btnDeleteText}>✕  Избриши го од прогрес</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <>
+                        <TouchableOpacity style={[styles.btn, styles.btnComplete]} onPress={() => onSetProgress("completed")} activeOpacity={0.8}>
+                          <Text style={styles.btnText}>✓  Го направив овој пост</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.btn, styles.btnCommit]} onPress={() => onSetProgress("committed")} activeOpacity={0.8}>
+                          <Text style={styles.btnText}>☑  Ќе го направам овој пост</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </>
                 )}
 
-                {/* Delete progress */}
-                {progress && (
-                  <TouchableOpacity
-                    style={[styles.btn, styles.btnDelete]}
-                    onPress={onDelete}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.btnDeleteText}>✕  Избриши прогрес</Text>
-                  </TouchableOpacity>
+                {/* ── FUTURE ─────────────────────────── */}
+                {isFuture && (
+                  progress === "committed" ? (
+                    <>
+                      <View style={[styles.statusBadge, styles.statusCommitted]}>
+                        <Text style={styles.statusText}>☑  Ќе го направам овој пост</Text>
+                      </View>
+                      <TouchableOpacity style={[styles.btn, styles.btnDelete]} onPress={onDelete} activeOpacity={0.8}>
+                        <Text style={styles.btnDeleteText}>✕  Избриши го од прогрес</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity style={[styles.btn, styles.btnCommit]} onPress={() => onSetProgress("committed")} activeOpacity={0.8}>
+                      <Text style={styles.btnText}>☑  Ќе го направам овој пост</Text>
+                    </TouchableOpacity>
+                  )
                 )}
 
-                {/* Cancel */}
-                <TouchableOpacity
-                  style={[styles.btn, styles.btnCancel]}
-                  onPress={onClose}
-                  activeOpacity={0.8}
-                >
+                {/* Cancel always visible */}
+                <TouchableOpacity style={[styles.btn, styles.btnCancel]} onPress={onClose} activeOpacity={0.8}>
                   <Text style={styles.btnCancelText}>Откажи</Text>
                 </TouchableOpacity>
               </View>
@@ -139,19 +163,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   statusBadge: {
-    borderRadius: 20,
+    width: "100%",
+    borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginBottom: 16,
+    paddingVertical: 10,
+    marginBottom: 4,
+    alignItems: "center",
   },
-  statusCompleted: {
-    backgroundColor: "#dcfce7",
-  },
-  statusCommitted: {
-    backgroundColor: "#fef3c7",
-  },
+  statusCompleted: { backgroundColor: "#dcfce7" },
+  statusCommitted: { backgroundColor: "#fef3c7" },
   statusText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
     color: "#1c1917",
   },
@@ -165,15 +187,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
-  btnComplete: {
-    backgroundColor: "#16a34a",
-  },
-  btnCommit: {
-    backgroundColor: "#78350f",
-  },
-  btnDelete: {
-    backgroundColor: "#fee2e2",
-  },
+  btnComplete: { backgroundColor: "#16a34a" },
+  btnCommit: { backgroundColor: "#78350f" },
+  btnDelete: { backgroundColor: "#fee2e2" },
   btnCancel: {
     backgroundColor: "#f5f5f4",
     marginTop: 4,
