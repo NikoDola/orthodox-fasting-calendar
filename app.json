@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "pravoslaven-calendar_react-native",
-    "slug": "pravoslaven-calendar_react-native",
+    "name": "Православен Календар",
+    "slug": "pravoslaven-calendar",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#78350f"
     },
     "ios": {
       "supportsTablet": true
@@ -21,10 +21,27 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.nikodola.pravoslavencalendar"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#78350f",
+          "sounds": []
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3014d039-28cc-4886-80d6-94730132e80f"
+      }
     }
   }
 }
