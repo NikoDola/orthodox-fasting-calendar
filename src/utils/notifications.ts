@@ -174,17 +174,20 @@ export async function scheduleUpcomingNotifications(
     }
   }
 
-  // Also notify about saint days (level 0) that the user committed to
-  await scheduleSaintDayNotifications(progress, hours, minutes);
+  // Day-of reminders for every committed future day (any fasting level)
+  await scheduleCommittedDayNotifications(progress, hours, minutes);
 }
 
-// Schedule saint-day reminders for level-0 days the user has committed to
-async function scheduleSaintDayNotifications(
+// Fires ON each committed future day at the notification time.
+// Covers all fasting levels, including level 0 (saint-only days).
+// The fast-start loop above handles "X days before a period starts" warnings separately.
+async function scheduleCommittedDayNotifications(
   progress: Record<string, DayProgress>,
   hours: number,
   minutes: number
 ): Promise<void> {
-  const todayNorm = new Date();
+  const now = new Date();
+  const todayNorm = new Date(now);
   todayNorm.setHours(0, 0, 0, 0);
 
   for (const [key, prog] of Object.entries(progress)) {
@@ -195,16 +198,19 @@ async function scheduleSaintDayNotifications(
 
     const dateNorm = new Date(date);
     dateNorm.setHours(0, 0, 0, 0);
-    if (dateNorm <= todayNorm) continue; // past / today already handled
+
+    // Include today — lets user test immediately by committing to today
+    if (dateNorm < todayNorm) continue;
 
     const easter = orthodoxEaster(date.getFullYear());
     const level = computeFastingLevel(date, easter);
-    if (level > 0) continue; // fasting days already covered by the main loop
-
     const saint = getSaintInfo(date, easter);
+
     const trigger = new Date(dateNorm);
     trigger.setHours(hours, minutes, 0, 0);
-    if (trigger <= new Date()) continue;
+
+    // Skip if the trigger moment is already in the past
+    if (trigger <= now) continue;
 
     const dateStr = date.toLocaleDateString("mk-MK", {
       weekday: "long",
@@ -212,12 +218,20 @@ async function scheduleSaintDayNotifications(
       month: "long",
     });
 
+    let title: string;
+    let body: string;
+
+    if (level > 0) {
+      const label = FASTING_LABELS[level];
+      title = `☦ Денес постиш: ${label}`;
+      body = `${dateStr}. ${getBodyForLevel(level)}`;
+    } else {
+      title = `☦ ${saint.name}`;
+      body = `${dateStr}. ${saint.description || "Прославување на светецот."}`;
+    }
+
     await Notifications.scheduleNotificationAsync({
-      content: {
-        title: `☦ ${saint.name}`,
-        body: `${dateStr}. ${saint.description || "Прославување на светецот."}`,
-        sound: true,
-      },
+      content: { title, body, sound: true },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: trigger,
